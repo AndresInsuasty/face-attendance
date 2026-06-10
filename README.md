@@ -1,4 +1,4 @@
-# 🎓 Face Attendance — Reconocimiento Facial Académico
+# 🎓 Face Attendance — Reconocimiento Facial
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
@@ -9,8 +9,39 @@
 </p>
 
 <p align="center">
-  Prueba de concepto de un sistema de reconocimiento facial para identificación de personas,<br/>
-  construido con DeepFace (ArcFace) + RetinaFace + Streamlit. Sin entrenamiento de modelos.
+  Prueba de concepto de reconocimiento facial para identificación de personas.<br/>
+  Construido con <strong>DeepFace (ArcFace + RetinaFace)</strong> y <strong>Streamlit</strong>. Sin entrenamiento de modelos.
+</p>
+
+---
+
+## Demo
+
+### Registro con detección en tiempo real
+
+Al subir fotos, el sistema detecta los rostros al instante y muestra el bounding box antes de guardar el perfil. Verde = rostro válido · Rojo = sin rostro.
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/demo/enrollment_1.jpg" width="220"/></td>
+    <td align="center"><img src="assets/demo/enrollment_2.jpg" width="220"/></td>
+    <td align="center"><img src="assets/demo/enrollment_3.jpg" width="220"/></td>
+    <td align="center"><img src="assets/demo/no_face.jpg" width="220"/></td>
+  </tr>
+  <tr>
+    <td align="center">✅ Rostro detectado</td>
+    <td align="center">✅ Rostro detectado</td>
+    <td align="center">✅ Rostro detectado</td>
+    <td align="center">❌ Sin rostro detectado</td>
+  </tr>
+</table>
+
+> Las caras de ejemplo son **100% sintéticas**, generadas por IA (thispersondoesnotexist.com). No corresponden a personas reales.
+
+### Resultado de identificación
+
+<p align="center">
+  <img src="assets/demo/identification_result.jpg" width="780"/>
 </p>
 
 ---
@@ -19,17 +50,9 @@
 
 | Página | Funcionalidad |
 |--------|--------------|
-| **Estudiantes** | Registra personas con nombre y fotos de referencia. Muestra en tiempo real si cada foto tiene un rostro detectable antes de guardar. Permite agregar fotos extra a perfiles ya existentes. |
-| **Identificar** | Sube una foto o usa la cámara. El sistema compara el rostro contra todos los perfiles registrados y muestra el nombre y porcentaje de confianza. |
-
-## Características técnicas
-
-- **Sin entrenamiento** — usa embeddings preentrenados de ArcFace (512 dimensiones).
-- **RetinaFace como detector** — red neuronal mucho más precisa que los Haar Cascades clásicos.
-- **Bounding boxes en tiempo real** — verde para el rostro principal, amarillo para secundarios, rojo si no se detecta nada.
-- **Embeddings incrementales** — agregar fotos al perfil de una persona promedia los nuevos embeddings con el existente.
-- **Base de datos local** — SQLite con SQLAlchemy 2.x. Sin infraestructura externa.
-- **Gestión de paquetes con `uv`** — instalación reproducible y rápida.
+| **Estudiantes → Nuevo** | Registra una persona con nombre y fotos. Muestra bounding boxes en tiempo real para confirmar que las fotos son válidas antes de guardar. |
+| **Estudiantes → Agregar fotos** | Sube fotos extra a un perfil ya existente. El embedding nuevo se promedia con el anterior para mejorar la precisión. |
+| **Identificar** | Sube una foto o usa la cámara. El sistema compara el rostro contra todos los perfiles y muestra nombre + porcentaje de confianza. |
 
 ---
 
@@ -39,19 +62,19 @@
 Foto de entrada
       │
       ▼
-RetinaFace (detector)
-      │  detecta región facial
+ RetinaFace              ← detector de rostros (red neuronal)
+      │  región facial
       ▼
-ArcFace (embedding)
-      │  vector de 512 dimensiones
+  ArcFace                ← modelo de embedding (512 dimensiones)
+      │  vector normalizado
       ▼
-Similitud coseno contra galería
-      │  compara contra todos los perfiles
+Similitud coseno         ← comparación contra galería
+      │  score por cada perfil
       ▼
-Mejor match ≥ umbral → identidad
+Mejor match ≥ umbral → identidad + confianza (%)
 ```
 
-El threshold por defecto es `0.40` (distancia coseno). Se puede ajustar en `.env`.
+No se entrena nada. Los modelos ArcFace y RetinaFace vienen preentrenados dentro de DeepFace.
 
 ---
 
@@ -60,7 +83,7 @@ El threshold por defecto es `0.40` (distancia coseno). Se puede ajustar en `.env
 - Python 3.11+
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — gestor de paquetes
 - Cámara web (opcional, para captura en vivo)
-- ~2 GB de espacio para los modelos de DeepFace (se descargan automáticamente la primera vez)
+- ~500 MB libres para los pesos de los modelos (se descargan automáticamente la primera vez)
 
 ---
 
@@ -71,20 +94,19 @@ El threshold por defecto es `0.40` (distancia coseno). Se puede ajustar en `.env
 git clone https://github.com/AndresInsuasty/face-attendance.git
 cd face-attendance
 
-# 2. Instalar dependencias
+# 2. Instalar dependencias (Python 3.11 se configura automáticamente con uv)
 uv sync
 
 # 3. Configurar variables de entorno (opcional)
 cp .env.example .env
-# Editar .env si quieres cambiar el umbral o el modelo
 ```
 
 > **Primera ejecución:** DeepFace descarga los pesos de RetinaFace y ArcFace (~500 MB).
-> Solo ocurre una vez; quedan en `~/.deepface/weights/`.
+> Solo ocurre una vez; quedan cacheados en `~/.deepface/weights/`.
 
 ---
 
-## Ejecutar la app
+## Ejecutar
 
 ```bash
 uv run streamlit run src/app.py
@@ -96,27 +118,50 @@ Abre `http://localhost:8501` en el navegador.
 
 ## Flujo de uso
 
-### 1. Registrar una persona
+### 1 · Registrar una persona
 
 1. Ve a **Estudiantes → Nuevo estudiante**
 2. Escribe el nombre
-3. Sube 3 o más fotos (distintos ángulos, iluminación variada)
-4. Verifica que todas tengan bounding box verde
-5. Clic en **Registrar estudiante**
+3. Sube **3 o más fotos** (distintos ángulos e iluminación)
+4. Verifica que todas muestren bounding box **verde**
+5. Haz clic en **Registrar estudiante**
 
-### 2. Identificar
+### 2 · Identificar
 
 1. Ve a **Identificar**
 2. Sube una foto o activa la cámara
-3. Clic en **Identificar**
+3. Haz clic en **Identificar**
 4. El sistema muestra el nombre y el porcentaje de confianza
 
-### 3. Mejorar un perfil existente
+### 3 · Mejorar un perfil existente
 
 1. Ve a **Estudiantes → Agregar fotos**
 2. Selecciona la persona
-3. Sube fotos adicionales
-4. Clic en **Actualizar embedding**
+3. Sube fotos adicionales (mínimo 1)
+4. Haz clic en **Actualizar embedding**
+
+---
+
+## Configuración
+
+Copia `.env.example` a `.env`:
+
+```env
+DEBUG=false
+
+# Modelo de embedding  (ArcFace recomendado para mayor precisión)
+DEEPFACE_MODEL=ArcFace
+
+# Detector de rostros  (retinaface >> opencv en precisión)
+DEEPFACE_DETECTOR=retinaface
+
+# Umbral de similitud coseno [0.0 – 1.0]
+# Más alto = más estricto.  Ajusta según iluminación y calidad de fotos.
+SIMILARITY_THRESHOLD=0.40
+
+# Fotos mínimas requeridas para registrar una persona
+ENROLLMENT_PHOTOS_MIN=3
+```
 
 ---
 
@@ -126,7 +171,7 @@ Abre `http://localhost:8501` en el navegador.
 face-attendance/
 ├── src/
 │   ├── app.py                   # Entrypoint Streamlit
-│   ├── config.py                # Configuración centralizada (pydantic-settings)
+│   ├── config.py                # Configuración (pydantic-settings)
 │   ├── database/
 │   │   ├── models.py            # Modelos SQLAlchemy 2.x
 │   │   └── connection.py        # Engine, sesión, init_db
@@ -143,34 +188,12 @@ face-attendance/
 │   ├── conftest.py
 │   ├── test_face_service.py
 │   └── test_student_repo.py
+├── assets/
+│   └── demo/                    # Imágenes de ejemplo del README
 ├── data/
-│   ├── db/                      # SQLite (ignorado por git)
-│   └── faces/                   # Fotos de referencia (ignoradas por git)
-├── pyproject.toml
-└── .env.example
-```
-
----
-
-## Configuración
-
-Copia `.env.example` a `.env` y ajusta según necesites:
-
-```env
-DEBUG=false
-
-# Modelo de embedding (ArcFace recomendado)
-DEEPFACE_MODEL=ArcFace
-
-# Detector de rostros (retinaface >> opencv en precisión)
-DEEPFACE_DETECTOR=retinaface
-
-# Umbral de similitud coseno (0.0–1.0)
-# Más alto = más estricto. Ajusta según tu caso de uso.
-SIMILARITY_THRESHOLD=0.40
-
-# Fotos mínimas requeridas para registrar una persona
-ENROLLMENT_PHOTOS_MIN=3
+│   ├── db/                      # SQLite  ← ignorado por git
+│   └── faces/                   # Fotos de referencia  ← ignorado por git
+└── pyproject.toml
 ```
 
 ---
@@ -178,28 +201,8 @@ ENROLLMENT_PHOTOS_MIN=3
 ## Tests
 
 ```bash
-# Instalar dependencias de desarrollo
-uv sync --extra dev
-
-# Ejecutar tests
-uv run pytest
-
-# Con reporte de cobertura en HTML
-uv run pytest --cov=src --cov-report=html
-open htmlcov/index.html
-```
-
----
-
-## Calidad de código
-
-```bash
-# Linter y formatter
-uv run ruff check .
-uv run ruff format .
-
-# Type checking
-uv run mypy src/
+uv sync --extra dev     # instala pytest, ruff, mypy
+uv run pytest           # 16 tests unitarios
 ```
 
 ---
@@ -214,16 +217,16 @@ uv run mypy src/
 | Validación | [Pydantic v2](https://docs.pydantic.dev/) |
 | Gestión de paquetes | [uv](https://docs.astral.sh/uv/) |
 | Tests | pytest + pytest-cov |
-| Linting | ruff + mypy |
+| Linting / tipos | ruff + mypy |
 
 ---
 
 ## Limitaciones conocidas
 
-- **Velocidad:** RetinaFace es más lento que detectores más simples. El primer enrollment puede tardar algunos segundos mientras carga los modelos.
-- **Fotos de grupo:** Si la imagen tiene múltiples rostros, se toma automáticamente el de mayor área.
-- **Iluminación:** Como cualquier sistema de reconocimiento facial, el rendimiento baja con iluminación muy pobre o contraluz extremo.
-- **Privacidad:** Este sistema almacena embeddings faciales. Para uso en producción, asegúrate de cumplir con la regulación de datos biométricos aplicable (GDPR, Ley 1581 en Colombia, etc.).
+- **Velocidad:** RetinaFace tarda ~1-2 s por foto en la primera carga (después usa caché).
+- **Fotos de grupo:** Si hay múltiples rostros, se toma automáticamente el de mayor área.
+- **Iluminación:** El rendimiento baja con contraluz extremo o muy poca luz.
+- **Privacidad:** Este sistema almacena embeddings faciales (datos biométricos). Para uso en producción, asegúrate de cumplir con la normativa aplicable (GDPR, Ley 1581 en Colombia, etc.).
 
 ---
 
@@ -231,7 +234,7 @@ uv run mypy src/
 
 1. Haz fork del repositorio
 2. Crea una rama: `git checkout -b feature/mi-mejora`
-3. Commitea tus cambios: `git commit -m "feat: descripción"`
+3. Commitea: `git commit -m "feat: descripción"`
 4. Abre un Pull Request
 
 ---
@@ -243,5 +246,6 @@ MIT — ver [LICENSE](LICENSE) para más detalles.
 ---
 
 <p align="center">
-  Hecho con ❤️ como prueba de concepto de reconocimiento facial académico
+  Hecho con ❤️ como prueba de concepto de reconocimiento facial académico<br/>
+  <sub>Las caras de demo son generadas por IA y no corresponden a personas reales.</sub>
 </p>

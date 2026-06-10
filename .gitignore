@@ -48,5 +48,8 @@ htmlcov/
 Thumbs.db
 desktop.ini
 
+# Script generador (no es parte del proyecto, solo para el README)
+assets/generate_demo.py
+
 # Logs
 *.log

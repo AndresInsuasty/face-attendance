@@ -1,0 +1,12 @@
+# Normalizar line endings a LF en el repositorio
+* text=auto eol=lf
+
+# Archivos binarios: no tocar line endings
+*.db binary
+*.bin binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.ico binary
+*.whl binary
